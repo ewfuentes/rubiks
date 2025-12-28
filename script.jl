@@ -131,11 +131,47 @@ mutable struct CubeState
 	edges::Dict{EdgeCubie, Edge}
 end
 
-function CubeState()
+function CubeState(; corner_overrides=Dict(), edge_overrides=Dict())
 	corners = Dict(c => Corner(c, 0) for c in instances(CornerCubie))
 	edges = Dict(c => Edge(c, false) for c in instances(EdgeCubie))
+	merge!(corners, corner_overrides)
+	merge!(edges, edge_overrides)
 	CubeState(corners, edges)
 end
+
+const U = CubeState(
+	corner_overrides = 
+	Dict(
+		FRU => Corner(FLU, 0),
+		FLU => Corner(BLU, 0),
+		BLU => Corner(BRU, 0),
+		BRU => Corner(FRU, 0),
+	),
+	edge_overrides = 
+	Dict(
+  	    FU => Edge(LU, false),
+  	    LU => Edge(BU, false),
+  	    BU => Edge(RU, false),
+  	    RU => Edge(FU, false),
+	),
+)
+
+const F = CubeState(
+	corner_overrides = 
+	Dict(
+		 FRU => Corner(FRD, 0),
+		 FRD => Corner(FLD, 0),
+		 FLD => Corner(FLU, 0),
+		 FLU => Corner(FRU, 0),
+	),
+	edge_overrides = 
+	Dict(
+		 FU => Edge(FR, false),
+		 FR => Edge(FD, false),
+		 FD => Edge(FL, false),
+		 FL => Edge(FU, false),
+	),
+)
 
 Base.getindex(s::CubeState, p::CornerCubie) = s.corners[p]
 Base.getindex(s::CubeState, p::EdgeCubie) = s.edges[p]
@@ -157,7 +193,7 @@ function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 			  kwargs...)
 end
 
-function draw_faces!(lscene::LScene, cubie, world_from_cubie::Transform)
+function draw_faces!(lscene::LScene, cubie, shift::Int, world_from_cubie::Transform)
     vertices_in_axis = [
     	Vec3d(0.5, -0.49, -0.49),
     	Vec3d(0.5, -0.49, 0.49),
@@ -169,7 +205,7 @@ function draw_faces!(lscene::LScene, cubie, world_from_cubie::Transform)
         GLTriangleFace(1, 3, 4),
     ]
 
-	faces = FACES_FROM_CUBIES[cubie]
+	faces = circshift(collect(FACES_FROM_CUBIES[cubie]), shift)
 	for (i, face) in enumerate(faces)
 		color = FACE_COLORS[face]
 		cubie_from_axis = Transform(circshift(one(Mat3d), (0, 1-i)))
@@ -186,43 +222,21 @@ function display!(lscene::LScene, cube::CubeState)
 	draw_triad!(lscene, Transform(), lengthscale=0.2)
 
 	# Draw triads for each of cubie coordinate frames
-	for (cubie, world_from_cubie) in WORLD_FROM_CUBIES
+	for (cubie_loc, world_from_cubie) in WORLD_FROM_CUBIES
 		draw_triad!(lscene, world_from_cubie, lengthscale=0.1)
-		text!(lscene, String(Symbol(cubie)), position=world_from_cubie.t)
-		draw_faces!(lscene, cubie, world_from_cubie)
+		text!(lscene, String(Symbol(cubie_loc)), position=world_from_cubie.t)
+		cubie_state = cubie_loc isa Symbol ? cubie_loc : cube[cubie_loc]
+		cubie = cubie_state isa Symbol ? cubie_state : cubie_state.cubie
+		shift = cubie isa Symbol ? 0 : (cubie_state isa Corner ? cubie_state.twist : (cubie_state.flip ? 1 : 0))
+		draw_faces!(lscene, cubie, shift, world_from_cubie)
 	end
-	
-
 end
 
 fig = Figure(size=(800, 600))
 lscene = LScene(fig[1, 1])
 identity_cube = CubeState()
 
-display!(lscene, identity_cube)
+display!(lscene, F)
 
 display(fig)
 wait(fig.scene)
-
-# faces = [
-#     GLTriangleFace(1, 2, 3),
-#     GLTriangleFace(1, 3, 4),
-# ]
-# 
-# vertices = [
-# 	Point3f(0.5, 0, 0),
-# 	Point3f(0.5, 0, 1),
-# 	Point3f(0.5, 1, 1),
-# 	Point3f(0.5, 1, 0),
-# ]
-# mesh!(lscene, vertices, faces, color = :blue)
-# 
-# vertices = [
-# 	Point3f(0, 0, 0),
-# 	Point3f(1, 0, 0),
-# 	Point3f(1, 1, 0),
-# 	Point3f(0, 1, 0),
-# ]
-# mesh!(lscene, vertices, faces, color = :red)
-# cam3d!(lscene, center=false)
-
