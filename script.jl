@@ -23,6 +23,14 @@ const FACE_COLORS = Dict(
 	:down => :yellow
 )
 
+const AXIS_FROM_FACE = Dict(
+	:front => :FB,
+	:back => :FB,
+	:right => :RL,
+	:left => :RL,
+	:up => :UD,
+	:down => :UD)
+
 const FACES_FROM_CUBIES = Dict(
     FRU => (:front, :right, :up),
     FRD => (:front, :right, :down),
@@ -118,12 +126,12 @@ end
 
 mutable struct Corner
 	cubie::CornerCubie
-	twist::Int
+	axis_perm::{3, Symbol}
 end
 
 mutable struct Edge
 	cubie::EdgeCubie
-	flip::Bool
+	axis_perm::NTuple{3, Symbol}
 end
 
 mutable struct CubeState
@@ -132,44 +140,47 @@ mutable struct CubeState
 end
 
 function CubeState(; corner_overrides=Dict(), edge_overrides=Dict())
-	corners = Dict(c => Corner(c, 0) for c in instances(CornerCubie))
-	edges = Dict(c => Edge(c, false) for c in instances(EdgeCubie))
+	corners = Dict(c => Corner(c, AXIS_FROM_FACE[FACES_FROM_CUBIES[c]])
+				   for c in instances(CornerCubie))
+	edges = Dict(c => Edge(c, AXIS_FROM_FACE[FACES_FROM_CUBIES[c]])
+				 for c in instances(EdgeCubie))
 	merge!(corners, corner_overrides)
 	merge!(edges, edge_overrides)
 	CubeState(corners, edges)
 end
 
 const U = CubeState(
+
 	corner_overrides = 
 	Dict(
-		FRU => Corner(FLU, 0),
-		FLU => Corner(BLU, 0),
-		BLU => Corner(BRU, 0),
-		BRU => Corner(FRU, 0),
+		 FRU => Corner(FLU, (:LR, :FB, :UD)),
+		 FLU => Corner(BLU, (:FB, :FB, :UD)),
+		 BLU => Corner(BRU, (:LR, :FB, :UD)),
+		 BRU => Corner(FRU, (:LR, :FB, :UD)),
 	),
 	edge_overrides = 
 	Dict(
-  	    FU => Edge(LU, false),
-  	    LU => Edge(BU, false),
-  	    BU => Edge(RU, false),
-  	    RU => Edge(FU, false),
+  	    FU => Edge(LU,(:LR, :FB, :UD)),
+  	    LU => Edge(BU,(:LR, :FB, :UD)),
+		BU => Edge(RU,(:LR, :FB, :UD)),
+		RU => Edge(FU,(:LR, :FB, :UD)),
 	),
 )
 
 const F = CubeState(
 	corner_overrides = 
 	Dict(
-		 FRU => Corner(FRD, 0),
-		 FRD => Corner(FLD, 0),
-		 FLD => Corner(FLU, 0),
-		 FLU => Corner(FRU, 0),
+		 FRU => Corner(FRD, (:FB, :UD, :LR)),
+		 FRD => Corner(FLD, (:FB, :UD, :LR)),
+		 FLD => Corner(FLU, (:FB, :UD, :LR)),
+		 FLU => Corner(FRU, (:FB, :UD, :LR)),
 	),
 	edge_overrides = 
 	Dict(
-		 FU => Edge(FR, false),
-		 FR => Edge(FD, false),
-		 FD => Edge(FL, false),
-		 FL => Edge(FU, false),
+		 FU => Edge(FR, (:FB, :UD, :LR)),
+		 FR => Edge(FD, (:FB, :UD, :LR)),
+		 FD => Edge(FL, (:FB, :UD, :LR)),
+		 FL => Edge(FU, (:FB, :UD, :LR)),
 	),
 )
 
