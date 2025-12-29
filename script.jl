@@ -6,8 +6,7 @@ using CoordinateTransformations
 using StaticArrays
 
 # precedence: F/B, R/L, U/D
-@enum CornerCubie FRU FRD FLU FLD BRU BRD BLU BLD 
-@enum EdgeCubie FR FL FU FD BR BL BU BD LU LD RU RD
+@enum Cubie FRU FRD FLU FLD BRU BRD BLU BLD FR FL FU FD BR BL BU BD LU LD RU RD
 
 struct Transform
 	r::Mat3d
@@ -124,70 +123,143 @@ function Base.:*(a_from_b::Transform, p_in_b::Vec3d)
 	a_from_b.r * p_in_b + a_from_b.t
 end
 
-mutable struct Corner
-	cubie::CornerCubie
-	axis_perm::{3, Symbol}
+mutable struct CubieState 
+	cubie::Cubie
+	axis_perm::Dict{Symbol, Symbol}
 end
 
-mutable struct Edge
-	cubie::EdgeCubie
-	axis_perm::NTuple{3, Symbol}
+mutable struct CubeState 
+	data::Dict{Cubie, CubieState}	
 end
 
-mutable struct CubeState
-	corners::Dict{CornerCubie, Corner}
-	edges::Dict{EdgeCubie, Edge}
-end
+Base.getindex(s::CubeState, p::Cubie) = s.data[p]
+Base.setindex!(s::CubeState, c::CubieState, p::Cubie) = s.data[p] = c
 
-function CubeState(; corner_overrides=Dict(), edge_overrides=Dict())
-	corners = Dict(c => Corner(c, AXIS_FROM_FACE[FACES_FROM_CUBIES[c]])
-				   for c in instances(CornerCubie))
-	edges = Dict(c => Edge(c, AXIS_FROM_FACE[FACES_FROM_CUBIES[c]])
-				 for c in instances(EdgeCubie))
-	merge!(corners, corner_overrides)
-	merge!(edges, edge_overrides)
-	CubeState(corners, edges)
+const DEFAULT_PERM = Dict(
+		:FB => :FB,
+		:RL => :RL,
+		:UD => :UD,
+	)
+
+function CubeState(; piece_swaps=Dict(), axis_perm=Dict())
+	out = CubeState(Dict(c => CubieState(c, DEFAULT_PERM)
+				   for c in instances(Cubie)))
+	for (k, v) in piece_swaps
+		out[k] = CubieState(v, axis_perm)
+	end
+	return out
 end
 
 const U = CubeState(
-
-	corner_overrides = 
-	Dict(
-		 FRU => Corner(FLU, (:LR, :FB, :UD)),
-		 FLU => Corner(BLU, (:FB, :FB, :UD)),
-		 BLU => Corner(BRU, (:LR, :FB, :UD)),
-		 BRU => Corner(FRU, (:LR, :FB, :UD)),
+	piece_swaps = Dict(
+		FRU => FLU,
+		FLU => BLU,
+		BLU => BRU,
+		BRU => FRU,
+  	    FU => LU,
+  	    LU => BU,
+		BU => RU,
+		RU => FU,
 	),
-	edge_overrides = 
-	Dict(
-  	    FU => Edge(LU,(:LR, :FB, :UD)),
-  	    LU => Edge(BU,(:LR, :FB, :UD)),
-		BU => Edge(RU,(:LR, :FB, :UD)),
-		RU => Edge(FU,(:LR, :FB, :UD)),
+	axis_perm = Dict(
+		:UD => :UD,
+		:FB => :RL,
+		:RL => :FB
+	),
+)
+
+const D = CubeState(
+	piece_swaps = Dict(
+		FRD => BRD,
+		BRD => BLD,
+		BLD => FLD,
+		FLD => FRD,
+  	    FD => RD,
+		RD => BD,
+		BD => LD,
+  	    LD => FD,
+	),
+	axis_perm = Dict(
+		:UD => :UD,
+		:FB => :RL,
+		:RL => :FB
 	),
 )
 
 const F = CubeState(
-	corner_overrides = 
-	Dict(
-		 FRU => Corner(FRD, (:FB, :UD, :LR)),
-		 FRD => Corner(FLD, (:FB, :UD, :LR)),
-		 FLD => Corner(FLU, (:FB, :UD, :LR)),
-		 FLU => Corner(FRU, (:FB, :UD, :LR)),
+	piece_swaps = Dict(
+		 FRU => FRD,
+		 FRD => FLD,
+		 FLD => FLU,
+		 FLU => FRU,
+		 FU => FR,
+		 FR => FD,
+		 FD => FL,
+		 FL => FU,
 	),
-	edge_overrides = 
-	Dict(
-		 FU => Edge(FR, (:FB, :UD, :LR)),
-		 FR => Edge(FD, (:FB, :UD, :LR)),
-		 FD => Edge(FL, (:FB, :UD, :LR)),
-		 FL => Edge(FU, (:FB, :UD, :LR)),
-	),
+	axis_perm = Dict(
+		:FB => :FB,
+		:RL => :UD,
+		:UD => :RL
+	)
 )
 
-Base.getindex(s::CubeState, p::CornerCubie) = s.corners[p]
-Base.getindex(s::CubeState, p::EdgeCubie) = s.edges[p]
-Base.setindex!(s::CubeState, p::CornerCubie, c::Corner) = s.corners[p] = c
-Base.setindex!(s::CubeState, p::EdgeCubie, c::Edge) = s.edges[p] = c
+const B = CubeState(
+	piece_swaps = Dict(
+		 BRU => BLU,
+		 BLU => BLD,
+		 BLD => BRD,
+		 BRD => BRU,
+		 BU => BL,
+		 BL => BD,
+		 BD => BR,
+		 BR => BU,
+	),
+	axis_perm = Dict(
+		:FB => :FB,
+		:RL => :UD,
+		:UD => :RL
+	)
+)
+
+const R = CubeState(
+	piece_swaps = Dict(
+		 FRU => BRU,
+		 BRU => BRD,
+		 BRD => FRD,
+		 FRD => FRU,
+
+		 FR => RU,
+		 RU => BR,
+		 BR => RD,
+		 RD => FR,
+
+	),
+	axis_perm = Dict(
+		:FB => :UD,
+		:RL => :RL,
+		:UD => :FB
+	)
+)
+
+const L = CubeState(
+	piece_swaps = Dict(
+		 FLU => FLD,
+		 FLD => BLD,
+		 BLD => BLU,
+		 BLU => FLU,
+		 FL => LD,
+		 LD => BL,
+		 BL => LU,
+		 LU => FL,
+	),
+	axis_perm = Dict(
+		:FB => :UD,
+		:RL => :RL,
+		:UD => :FB
+	)
+)
+
 
 function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 	colors = [:red, :green, :blue]
@@ -204,7 +276,7 @@ function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 			  kwargs...)
 end
 
-function draw_faces!(lscene::LScene, cubie, shift::Int, world_from_cubie::Transform)
+function draw_faces!(lscene::LScene, cubie, axis_perm, cubie_loc)
     vertices_in_axis = [
     	Vec3d(0.5, -0.49, -0.49),
     	Vec3d(0.5, -0.49, 0.49),
@@ -216,8 +288,15 @@ function draw_faces!(lscene::LScene, cubie, shift::Int, world_from_cubie::Transf
         GLTriangleFace(1, 3, 4),
     ]
 
-	faces = circshift(collect(FACES_FROM_CUBIES[cubie]), shift)
-	for (i, face) in enumerate(faces)
+	# want a map that goes from original faces to new face ordering
+	faces = FACES_FROM_CUBIES[cubie]
+	face_from_dir = Dict(AXIS_FROM_FACE[f] => f for f in faces)
+	face_from_permuted_dir = Dict(axis_perm[d] => f for (d, f) in face_from_dir)
+	cubie_loc_dirs = [AXIS_FROM_FACE[f] for f in FACES_FROM_CUBIES[cubie_loc]]
+	permuted_faces = [face_from_permuted_dir[d] for d in cubie_loc_dirs]
+
+	world_from_cubie = WORLD_FROM_CUBIES[cubie_loc]
+	for (i, face) in enumerate(permuted_faces)
 		color = FACE_COLORS[face]
 		cubie_from_axis = Transform(circshift(one(Mat3d), (0, 1-i)))
 		vertices_in_world = [world_from_cubie * cubie_from_axis * v for v in vertices_in_axis]
@@ -238,8 +317,8 @@ function display!(lscene::LScene, cube::CubeState)
 		text!(lscene, String(Symbol(cubie_loc)), position=world_from_cubie.t)
 		cubie_state = cubie_loc isa Symbol ? cubie_loc : cube[cubie_loc]
 		cubie = cubie_state isa Symbol ? cubie_state : cubie_state.cubie
-		shift = cubie isa Symbol ? 0 : (cubie_state isa Corner ? cubie_state.twist : (cubie_state.flip ? 1 : 0))
-		draw_faces!(lscene, cubie, shift, world_from_cubie)
+		axis_perm = cubie isa Symbol ? DEFAULT_PERM : cubie_state.axis_perm
+		draw_faces!(lscene, cubie, axis_perm, cubie_loc)
 	end
 end
 
@@ -247,7 +326,7 @@ fig = Figure(size=(800, 600))
 lscene = LScene(fig[1, 1])
 identity_cube = CubeState()
 
-display!(lscene, F)
+display!(lscene, L)
 
 display(fig)
 wait(fig.scene)
