@@ -123,9 +123,11 @@ function Base.:*(a_from_b::Transform, p_in_b::Vec3d)
 	a_from_b.r * p_in_b + a_from_b.t
 end
 
-mutable struct CubieState 
+const AxisPerm = NamedTuple{(:FB, :RL, :UD), NTuple{3, Symbol}}
+
+struct CubieState 
 	cubie::Cubie
-	axis_perm::Dict{Symbol, Symbol}
+	axis_perm::AxisPerm
 end
 
 mutable struct CubeState 
@@ -135,13 +137,9 @@ end
 Base.getindex(s::CubeState, p::Cubie) = s.data[p]
 Base.setindex!(s::CubeState, c::CubieState, p::Cubie) = s.data[p] = c
 
-const DEFAULT_PERM = Dict(
-		:FB => :FB,
-		:RL => :RL,
-		:UD => :UD,
-	)
+const DEFAULT_PERM = (FB= :FB, RL = :RL, UD = :UD)
 
-function CubeState(; piece_swaps=Dict(), axis_perm=Dict())
+function CubeState(; piece_swaps=Dict(), axis_perm=DEFAULT_PERM)
 	out = CubeState(Dict(c => CubieState(c, DEFAULT_PERM)
 				   for c in instances(Cubie)))
 	for (k, v) in piece_swaps
@@ -161,11 +159,7 @@ const U = CubeState(
 		BU => RU,
 		RU => FU,
 	),
-	axis_perm = Dict(
-		:UD => :UD,
-		:FB => :RL,
-		:RL => :FB
-	),
+	axis_perm = (FB = :RL, RL = :FB, UD = :UD),
 )
 
 const D = CubeState(
@@ -179,11 +173,7 @@ const D = CubeState(
 		BD => LD,
   	    LD => FD,
 	),
-	axis_perm = Dict(
-		:UD => :UD,
-		:FB => :RL,
-		:RL => :FB
-	),
+	axis_perm = (FB = :RL, RL = :FB, UD = :UD),
 )
 
 const F = CubeState(
@@ -197,11 +187,7 @@ const F = CubeState(
 		 FD => FL,
 		 FL => FU,
 	),
-	axis_perm = Dict(
-		:FB => :FB,
-		:RL => :UD,
-		:UD => :RL
-	)
+	axis_perm = (FB = :FB, RL = :UD, UD = :RL)
 )
 
 const B = CubeState(
@@ -215,11 +201,7 @@ const B = CubeState(
 		 BD => BR,
 		 BR => BU,
 	),
-	axis_perm = Dict(
-		:FB => :FB,
-		:RL => :UD,
-		:UD => :RL
-	)
+	axis_perm = (FB = :FB, RL = :UD, UD = :RL)
 )
 
 const R = CubeState(
@@ -235,11 +217,7 @@ const R = CubeState(
 		 RD => FR,
 
 	),
-	axis_perm = Dict(
-		:FB => :UD,
-		:RL => :RL,
-		:UD => :FB
-	)
+	axis_perm = (FB = :UD, RL = :RL, UD = :FB)
 )
 
 const L = CubeState(
@@ -253,11 +231,7 @@ const L = CubeState(
 		 BL => LU,
 		 LU => FL,
 	),
-	axis_perm = Dict(
-		:FB => :UD,
-		:RL => :RL,
-		:UD => :FB
-	)
+	axis_perm = (FB = :UD, RL = :RL, UD = :FB)
 )
 
 
@@ -301,9 +275,8 @@ function draw_faces!(lscene::LScene, cubie, axis_perm, cubie_loc)
 		cubie_from_axis = Transform(circshift(one(Mat3d), (0, 1-i)))
 		vertices_in_world = [world_from_cubie * cubie_from_axis * v for v in vertices_in_axis]
 		mesh!(lscene, vertices_in_world, mesh_faces, color = color, shading=NoShading)
-		linesegments!(lscene, 
-					  [vertices_in_world..., vertices_in_world[1]],
-					  color=:black, linewidth=2)
+		lines!(lscene, [vertices_in_world..., vertices_in_world[1]],
+					  color=:black, linewidth=3)
 	end
 end
 
