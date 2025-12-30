@@ -14,10 +14,10 @@ struct Transform
 end
 
 const FACE_COLORS = Dict(
-	:front => :red,
-	:right => :blue,
-	:back => :orange,
-	:left => :green,
+	:front => :green,
+	:right => :red,
+	:back => :blue,
+	:left => :orange,
 	:up => :white,
 	:down => :yellow
 )
@@ -57,6 +57,12 @@ const FACES_FROM_CUBIES = Dict(
 	:left => (:left,),
 	:up => (:up,),
 	:down => (:down,),
+)
+
+const AXIS_PERM_FROM_DIR = Dict(
+	:FB => (FB = :FB, RL = :UD, UD = :RL),
+	:RL => (FB = :UD, RL = :RL, UD = :FB),
+	:UD => (FB = :RL, RL = :FB, UD = :UD),
 )
 
 const WORLD_FROM_CUBIES = Dict(
@@ -137,6 +143,26 @@ end
 Base.getindex(s::CubeState, p::Cubie) = s.data[p]
 Base.setindex!(s::CubeState, c::CubieState, p::Cubie) = s.data[p] = c
 
+function Base.:*(a::CubeState, b::CubeState)
+	# To compute a * b, we iterate over the cubie locations.
+	# For each location, we find which piece is there in b
+	# We then look up the location of that piece in A
+	out = Dict()
+	for c in instances(Cubie)
+		# look through a
+		a_state = a[c]
+		# look through b
+		b_state = b[a_state.cubie]
+
+		axis_perm = AxisPerm(
+			a_state.axis_perm[b_state.axis_perm[d]]
+			for d in fieldnames(AxisPerm)
+		)
+		out[c] = CubieState(b_state.cubie, axis_perm)
+	end
+	CubeState(out)
+end
+
 const DEFAULT_PERM = (FB= :FB, RL = :RL, UD = :UD)
 
 function CubeState(; piece_swaps=Dict(), axis_perm=DEFAULT_PERM)
@@ -148,92 +174,28 @@ function CubeState(; piece_swaps=Dict(), axis_perm=DEFAULT_PERM)
 	return out
 end
 
-const U = CubeState(
-	piece_swaps = Dict(
-		FRU => FLU,
-		FLU => BLU,
-		BLU => BRU,
-		BRU => FRU,
-  	    FU => LU,
-  	    LU => BU,
-		BU => RU,
-		RU => FU,
-	),
-	axis_perm = (FB = :RL, RL = :FB, UD = :UD),
-)
+function FaceRotation(corner_cycle, edge_cycle)
+	piece_swaps = Dict()
+	for (src, dst) in zip(corner_cycle, circshift(corner_cycle, -1)) 
+		piece_swaps[src] = dst	
+	end
+	for (src, dst) in zip(edge_cycle, circshift(edge_cycle, -1)) 
+		piece_swaps[src] = dst	
+	end
 
-const D = CubeState(
-	piece_swaps = Dict(
-		FRD => BRD,
-		BRD => BLD,
-		BLD => FLD,
-		FLD => FRD,
-  	    FD => RD,
-		RD => BD,
-		BD => LD,
-  	    LD => FD,
-	),
-	axis_perm = (FB = :RL, RL = :FB, UD = :UD),
-)
+	all_pieces = [corner_cycle..., edge_cycle...]
+	common_face = only(intersect([FACES_FROM_CUBIES[c] for c in all_pieces]...))
+	common_dir = AXIS_FROM_FACE[common_face]
 
-const F = CubeState(
-	piece_swaps = Dict(
-		 FRU => FRD,
-		 FRD => FLD,
-		 FLD => FLU,
-		 FLU => FRU,
-		 FU => FR,
-		 FR => FD,
-		 FD => FL,
-		 FL => FU,
-	),
-	axis_perm = (FB = :FB, RL = :UD, UD = :RL)
-)
+	return CubeState(piece_swaps=piece_swaps, axis_perm = AXIS_PERM_FROM_DIR[common_dir])
+end
 
-const B = CubeState(
-	piece_swaps = Dict(
-		 BRU => BLU,
-		 BLU => BLD,
-		 BLD => BRD,
-		 BRD => BRU,
-		 BU => BL,
-		 BL => BD,
-		 BD => BR,
-		 BR => BU,
-	),
-	axis_perm = (FB = :FB, RL = :UD, UD = :RL)
-)
-
-const R = CubeState(
-	piece_swaps = Dict(
-		 FRU => BRU,
-		 BRU => BRD,
-		 BRD => FRD,
-		 FRD => FRU,
-
-		 FR => RU,
-		 RU => BR,
-		 BR => RD,
-		 RD => FR,
-
-	),
-	axis_perm = (FB = :UD, RL = :RL, UD = :FB)
-)
-
-const L = CubeState(
-	piece_swaps = Dict(
-		 FLU => FLD,
-		 FLD => BLD,
-		 BLD => BLU,
-		 BLU => FLU,
-		 FL => LD,
-		 LD => BL,
-		 BL => LU,
-		 LU => FL,
-	),
-	axis_perm = (FB = :UD, RL = :RL, UD = :FB)
-)
-
+const U = FaceRotation([FRU, FLU, BLU, BRU], [FU, LU, BU, RU])
+const D = FaceRotation([FRD, BRD, BLD, FLD], [FD, RD, BD, LD])
+const F = FaceRotation([FRU, FRD, FLD, FLU], [FU, FR, FD, FL])
+const B = FaceRotation([BRU, BLU, BLD, BRD], [BU, BL, BD, BR])
+const R = FaceRotation([FRU, BRU, BRD, FRD], [FR, RU, BR, RD])
+const L = FaceRotation([FLU, FLD, BLD, BLU], [FL, LD, BL, LU])
 
 function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 	colors = [:red, :green, :blue]
@@ -299,7 +261,7 @@ fig = Figure(size=(800, 600))
 lscene = LScene(fig[1, 1])
 identity_cube = CubeState()
 
-display!(lscene, L)
+display!(lscene, F * R * U * B * L * D)
 
 display(fig)
 wait(fig.scene)
