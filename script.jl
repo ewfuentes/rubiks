@@ -136,18 +136,40 @@ struct CubieState
 	axis_perm::AxisPerm
 end
 
-mutable struct CubeState 
+struct CubeState 
 	data::Dict{Cubie, CubieState}	
+	inv_data::Dict{Cubie, CubieState}
 end
 
+function CubeState(data::Dict{Cubie, CubieState})
+	inv_data = Dict{Cubie, CubieState}()
+	for (cubie, cubie_state) in data
+		d = Dict(v => k for (k, v) in pairs(cubie_state.axis_perm))
+		inv_data[cubie_state.cubie] = CubieState(
+			cubie, (FB = d[:FB], RL = d[:RL], UD = d[:UD]))
+	end
+	CubeState(data, inv_data)
+end
+
+function CubeState(; piece_swaps=Dict(), axis_perm=DEFAULT_PERM)
+	data = Dict{Cubie, CubieState}(c => CubieState(c, DEFAULT_PERM)
+				   for c in instances(Cubie))
+	for (k, v) in piece_swaps
+		data[k] = CubieState(v, axis_perm)
+	end
+	CubeState(data)
+end
+
+
 Base.getindex(s::CubeState, p::Cubie) = s.data[p]
-Base.setindex!(s::CubeState, c::CubieState, p::Cubie) = s.data[p] = c
+Base.inv(s::CubeState) = CubeState(s.inv_data, s.data)
+Base.adjoint(s::CubeState) = inv(s)
 
 function Base.:*(a::CubeState, b::CubeState)
 	# To compute a * b, we iterate over the cubie locations.
 	# For each location, we find which piece is there in b
 	# We then look up the location of that piece in A
-	out = Dict()
+	out = Dict{Cubie, CubieState}()
 	for c in instances(Cubie)
 		# look through a
 		a_state = a[c]
@@ -164,15 +186,6 @@ function Base.:*(a::CubeState, b::CubeState)
 end
 
 const DEFAULT_PERM = (FB= :FB, RL = :RL, UD = :UD)
-
-function CubeState(; piece_swaps=Dict(), axis_perm=DEFAULT_PERM)
-	out = CubeState(Dict(c => CubieState(c, DEFAULT_PERM)
-				   for c in instances(Cubie)))
-	for (k, v) in piece_swaps
-		out[k] = CubieState(v, axis_perm)
-	end
-	return out
-end
 
 function FaceRotation(corner_cycle, edge_cycle)
 	piece_swaps = Dict()
@@ -261,7 +274,7 @@ fig = Figure(size=(800, 600))
 lscene = LScene(fig[1, 1])
 identity_cube = CubeState()
 
-display!(lscene, F * R * U * B * L * D)
+display!(lscene, D' * L' * B' * U' * R' * F' * F * R * U * B * L * D)
 
 display(fig)
 wait(fig.scene)
