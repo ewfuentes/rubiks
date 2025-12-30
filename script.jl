@@ -190,10 +190,10 @@ const DEFAULT_PERM = (FB= :FB, RL = :RL, UD = :UD)
 function FaceRotation(corner_cycle, edge_cycle)
 	piece_swaps = Dict()
 	for (src, dst) in zip(corner_cycle, circshift(corner_cycle, -1)) 
-		piece_swaps[src] = dst	
+		piece_swaps[dst] = src
 	end
 	for (src, dst) in zip(edge_cycle, circshift(edge_cycle, -1)) 
-		piece_swaps[src] = dst	
+		piece_swaps[dst] = src
 	end
 
 	all_pieces = [corner_cycle..., edge_cycle...]
@@ -203,12 +203,12 @@ function FaceRotation(corner_cycle, edge_cycle)
 	return CubeState(piece_swaps=piece_swaps, axis_perm = AXIS_PERM_FROM_DIR[common_dir])
 end
 
-const U = FaceRotation([FRU, FLU, BLU, BRU], [FU, LU, BU, RU])
-const D = FaceRotation([FRD, BRD, BLD, FLD], [FD, RD, BD, LD])
-const F = FaceRotation([FRU, FRD, FLD, FLU], [FU, FR, FD, FL])
-const B = FaceRotation([BRU, BLU, BLD, BRD], [BU, BL, BD, BR])
-const R = FaceRotation([FRU, BRU, BRD, FRD], [FR, RU, BR, RD])
-const L = FaceRotation([FLU, FLD, BLD, BLU], [FL, LD, BL, LU])
+const U = FaceRotation([FRU, BRU, BLU, FLU], [FU, RU, BU, LU])
+const D = FaceRotation([FRD, FLD, BLD, BRD], [FD, LD, BD, RD])
+const F = FaceRotation([FRU, FLU, FLD, FRD], [FU, FL, FD, FR])
+const B = FaceRotation([BRU, BRD, BLD, BLU], [BU, BR, BD, BL])
+const R = FaceRotation([FRU, FRD, BRD, BRU], [FR, RD, BR, RU])
+const L = FaceRotation([FLU, BLU, BLD, FLD], [FL, LU, BL, LD])
 
 function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 	colors = [:red, :green, :blue]
