@@ -35,14 +35,10 @@ end
 
 function to_perm(s::CubeState)
     out = fill(-1, 48)
-    for ((cubie, face), facelet_id) in FACELET_ID_FROM_FACELET 
+    for (facelet, facelet_id) in FACELET_ID_FROM_FACELET 
         # Find out where the cubie ends up
-        new_cubie_loc = s.inv_data[cubie].cubie
-        new_axis_perm = Dict(v => k for (k, v) in pairs(s.inv_data[cubie].axis_perm))
-        face_axis = AXIS_FROM_FACE[face]
-        dir_from_new_face = Dict(AXIS_FROM_FACE[f] => f for f in FACES_FROM_CUBIES[new_cubie_loc])
-        new_face = dir_from_new_face[new_axis_perm[face_axis]]
-        new_facelet_id = FACELET_ID_FROM_FACELET[(new_cubie_loc, new_face)]
+        new_facelet = s * facelet
+        new_facelet_id = FACELET_ID_FROM_FACELET[new_facelet]
         out[facelet_id] = new_facelet_id
     end
     return out

@@ -1,6 +1,7 @@
 # precedence: F/B, R/L, U/D
 @enum Cubie FRU FRD FLU FLD BRU BRD BLU BLD FR FL FU FD BR BL BU BD LU LD RU RD
 const AxisPerm = NamedTuple{(:FB, :RL, :UD), NTuple{3, Symbol}}
+const Facelet = Tuple{Cubie, Symbol}
 
 
 const FACE_COLORS = Dict(
@@ -89,6 +90,17 @@ Base.getindex(s::CubeState, p::Cubie) = s.data[p]
 Base.inv(s::CubeState) = CubeState(s.inv_data, s.data)
 Base.adjoint(s::CubeState) = inv(s)
 
+function Base.:*(a::CubeState, b::Facelet)
+    query_cubie, query_face = b
+    new_cubie_state = a[query_cubie]
+    new_cubie = new_cubie_state.cubie
+    face_dir = AXIS_FROM_FACE[query_face]
+    new_face_dir = new_cubie_state.axis_perm[face_dir]
+    new_face = only(filter(f-> new_face_dir == AXIS_FROM_FACE[f],
+                           FACES_FROM_CUBIES[new_cubie]))
+    (new_cubie, new_face)
+end
+
 function Base.:*(a::CubeState, b::CubeState)
 	# To compute a * b, we iterate over the cubie locations.
 	# For each location, we find which piece is there in b
@@ -96,15 +108,14 @@ function Base.:*(a::CubeState, b::CubeState)
 	out = Dict{Cubie, CubieState}()
 	for c in instances(Cubie)
 		# look through a
-		a_state = a[c]
+		b_state = b[c]
 		# look through b
-		b_state = b[a_state.cubie]
-
+		a_state = a[b_state.cubie]
 		axis_perm = AxisPerm(
 			a_state.axis_perm[b_state.axis_perm[d]]
 			for d in fieldnames(AxisPerm)
 		)
-		out[c] = CubieState(b_state.cubie, axis_perm)
+		out[c] = CubieState(a_state.cubie, axis_perm)
 	end
 	CubeState(out)
 end
@@ -114,10 +125,10 @@ const DEFAULT_PERM = (FB= :FB, RL = :RL, UD = :UD)
 function FaceRotation(corner_cycle, edge_cycle)
 	piece_swaps = Dict()
 	for (src, dst) in zip(corner_cycle, circshift(corner_cycle, -1)) 
-		piece_swaps[dst] = src
+		piece_swaps[src] = dst
 	end
 	for (src, dst) in zip(edge_cycle, circshift(edge_cycle, -1)) 
-		piece_swaps[dst] = src
+		piece_swaps[src] = dst
 	end
 
 	all_pieces = [corner_cycle..., edge_cycle...]

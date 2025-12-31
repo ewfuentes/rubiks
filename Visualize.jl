@@ -66,7 +66,7 @@ function draw_triad!(lscene::LScene, world_from_frame::Transform; kwargs...)
 			  kwargs...)
 end
 
-function draw_faces!(lscene::LScene, cubie, axis_perm, cubie_loc)
+function draw_faces!(lscene::LScene, cube::CubeState, cubie_loc)
     vertices_in_axis = [
     	Vec3d(0.5, -0.49, -0.49),
     	Vec3d(0.5, -0.49, 0.49),
@@ -78,16 +78,14 @@ function draw_faces!(lscene::LScene, cubie, axis_perm, cubie_loc)
         GLTriangleFace(1, 3, 4),
     ]
 
-	# want a map that goes from original faces to new face ordering
-	faces = FACES_FROM_CUBIES[cubie]
-	face_from_dir = Dict(AXIS_FROM_FACE[f] => f for f in faces)
-	face_from_permuted_dir = Dict(axis_perm[d] => f for (d, f) in face_from_dir)
-	cubie_loc_dirs = [AXIS_FROM_FACE[f] for f in FACES_FROM_CUBIES[cubie_loc]]
-	permuted_faces = [face_from_permuted_dir[d] for d in cubie_loc_dirs]
-
 	world_from_cubie = WORLD_FROM_CUBIES[cubie_loc]
-	for (i, face) in enumerate(permuted_faces)
-		color = FACE_COLORS[face]
+	for (i, face) in enumerate(FACES_FROM_CUBIES[cubie_loc])
+        if cubie_loc isa Symbol
+            src_face = face
+        else
+            _, src_face = cube' * (cubie_loc, face)
+        end
+		color = FACE_COLORS[src_face]
 		cubie_from_axis = Transform(circshift(one(Mat3d), (0, 1-i)))
 		vertices_in_world = [world_from_cubie * cubie_from_axis * v for v in vertices_in_axis]
 		mesh!(lscene, vertices_in_world, mesh_faces, color = color, shading=NoShading)
@@ -104,9 +102,6 @@ function display!(lscene::LScene, cube::CubeState)
 	for (cubie_loc, world_from_cubie) in WORLD_FROM_CUBIES
 		draw_triad!(lscene, world_from_cubie, lengthscale=0.1)
 		text!(lscene, String(Symbol(cubie_loc)), position=world_from_cubie.t)
-		cubie_state = cubie_loc isa Symbol ? cubie_loc : cube[cubie_loc]
-		cubie = cubie_state isa Symbol ? cubie_state : cubie_state.cubie
-		axis_perm = cubie isa Symbol ? DEFAULT_PERM : cubie_state.axis_perm
-		draw_faces!(lscene, cubie, axis_perm, cubie_loc)
+		draw_faces!(lscene, cube, cubie_loc)
 	end
 end
