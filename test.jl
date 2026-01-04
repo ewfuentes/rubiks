@@ -13,4 +13,5 @@ using Test
     @test (FRU, :front) == ((F * R) * (FRU, :up))
     @test (FRU, :right) == (F * R * (FRU, :front))
     @test (FRU, :up) == (F * R * (FRU, :right))
+    @test ((F * R) * (FRU, :right)) == (F * (R * (FRU, :right)))
 end

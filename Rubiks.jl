@@ -144,3 +144,12 @@ const F = FaceRotation([FRU, FLU, FLD, FRD], [FU, FL, FD, FR])
 const B = FaceRotation([BRU, BRD, BLD, BLU], [BU, BR, BD, BL])
 const R = FaceRotation([FRU, FRD, BRD, BRU], [FR, RD, BR, RU])
 const L = FaceRotation([FLU, BLU, BLD, FLD], [FL, LU, BL, LD])
+
+const RUBIKS_MOVES = Dict(
+	:F => F,
+	:B => B,
+	:R => R,
+	:L => L,
+	:U => U,
+	:D => D,
+)
